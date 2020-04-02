@@ -1,172 +1,184 @@
+# Importing modules
 from flask import Flask, render_template, request, jsonify, redirect, session
 from flask import abort
 from flask_cors import CORS, cross_origin
 from flask import make_response, url_for
 import json
+import random
+from pymongo import MongoClient
 from time import gmtime, strftime
 import sqlite3
 
+# connection to MongoDB Database
+connection = MongoClient("mongodb://localhost:27017/")
+
+# Object creation
 app = Flask (__name__)
 app.config.from_object(__name__)
 app.secret_key = 'F12Zr47j\3yX R~X@H!jmM]Lwf/,?KT'
 CORS(app)
 
+# Initialize Database
+def create_mongodatabase():
+    try:
+        dbnames = connection.list_database_names()
+        if 'python_cloud' not in dbnames:
+            db_users = connection.python_cloud.users
+            db_tweets = connection.python_cloud.tweets
+            db_api = connection.python_cloud.apirelease
+
+            db_users.insert({
+            "email": "eric.strom@google.com",
+            "id": 33,
+            "name": "Eric stromberg",
+            "password": "eric@123",
+            "username": "eric.strom"
+            })
+
+            db_tweets.insert({
+            "body": "New blog post,Launch your app with the AWS Startup Kit! #AWS",
+            "id": 18,
+            "timestamp": "2017-03-11T06:39:40Z",
+            "tweetedby": "eric.strom"
+            })
+
+            db_api.insert( {
+              "buildtime": "2017-01-01 10:00:00",
+              "links": "/api/v1/users",
+              "methods": "get, post, put, delete",
+              "version": "v1"
+            })
+            db_api.insert( {
+              "buildtime": "2017-02-11 10:00:00",
+              "links": "api/v2/tweets",
+              "methods": "get, post",
+              "version": "V2"
+            })
+            print ("Database Initialize completed!")
+        else:
+            print ("Database already Initialized!")
+    except:
+        print ("Database creation failed!!")
+
+# List users
 def list_users():
-    conn=sqlite3.connect('project.db')
-    print("Opened database successfully");
     api_list=[]
-    cursor = conn.execute ("SELECT username, full_name, email, password FROM users")
-    for row in cursor:
-        a_dict={}
-        a_dict['username'] = row[0]
-        a_dict['name'] = row[1]
-        a_dict['email'] = row[2]
-        a_dict['password'] = row[3]
-        api_list.append(a_dict)
-    conn.close()
+    db = connection.python_cloud.users
+    for row in db.find():
+        api_list.append(str(row))
+    # print (api_list)
     return jsonify({'user_list': api_list})
 
-def user_filter():
-        query_parameters = request.args
-
-        id = query_parameters.get('id')
-
-        query = "SELECT username, password FROM users WHERE"
-        to_filter = []
-
-        if id:
-            query += ' id=?'
-            to_filter.append(id)
-        if not (id):
-            return page_not_found(404)
-
-        query = query + ';'
-
-        conn = sqlite3.connect('project.db')
-        cur = conn.cursor()
-
-        results = cur.execute(query, to_filter).fetchall()
-
-        return jsonify(results)
-
-def add_user(new_user):
-    conn = sqlite3.connect('project.db')
-    print ("Opened database successfully");
+# List specific users
+def list_user(user_id):
+    print (user_id)
     api_list=[]
-    cursor=conn.cursor()
-    cursor.execute("SELECT * FROM users where username=? or email=?",(new_user['username'],new_user['email']))
-    data = cursor.fetchall()
-    if len(data) != 0:
-        abort(409)
-    else:
-        cursor.execute('''INSERT INTO users (username, email, password, full_name) values(?,?,?,?)''',(new_user['username'],new_user['email'],new_user['password'], new_user['name']))
-        conn.commit()
-        return "Success"
-    conn.close()
-    return jsonify(a_dict)
+    db = connection.python_cloud.users
+    for i in db.find({'id':user_id}):
+        api_list.append(str(i))
 
-def del_user(del_user):
-    conn = sqlite3.connect('project.db')
-    print ("Opened database successfully");
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE username=? ", (del_user,))
-    data = cursor.fetchall()
-    print ("Data" ,data)
-    if len(data) == 0:
+    if api_list == []:
         abort(404)
-    else:
-        cursor.execute("DELETE FROM users WHERE username==?", (del_user,))
-        conn.commit()
-        return "Success"
+    return jsonify({'user_details':api_list})
 
-def upd_user(user):
-    conn = sqlite3.connect('project.db')
-    print ("Opened database successfully")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE id=? ", (user['id'],))
-    data = cursor.fetchall()
-    print (data)
-    if len(data) == 0:
-        abort(404)
-    else:
-        key_list=user.keys()
-        for i in key_list:
-            if i != "id":
-                print (user, i)
-                # cursor.execute('''UPDATE users set {0}0? WHERE id=? ''', (i, user[i], user['id']))
-                cursor.execute('''UPDATE users SET {0}=? WHERE id=?'''.format(i), (user[i], user['id']))
-                conn.commit()
-    return "Success"
-
-def list_tweets():
-    conn=sqlite3.connect('project.db')
-    print("Opened database successfully");
-    api_list=[]
-    cursor = conn.cursor()
-    cursor.execute ("SELECT * FROM tweets")
-    data = cursor.fetchall()
-    for row in data:
-        tweets={}
-        tweets['id'] = row[0]
-        tweets['tweetedby'] = row[1]
-        tweets['body'] = row[2]
-        tweets['timestamp'] = row[3]
-        api_list.append(tweets)
-    conn.close()
-    return jsonify({'tweets_list': api_list})
-
-def add_tweet(new_tweets):
-    conn = sqlite3.connect('project.db')
-    print ("Opened database successfully");
-    cursor=conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE username=? ", (new_tweets['username'],))
-    data = cursor.fetchall()
-    if len(data)==0:
-        abort(404)
-    else:
-        cursor.execute('''INSERT INTO tweets (username, body, tweet_time) values(?,?,?)''', (new_tweets['username'], new_tweets['body'], new_tweets['tweet_time']))
-        conn.commit()
-        return "Success"
-
+# List specific tweet
 def list_tweet(user_id):
     print (user_id)
-    conn = sqlite3.connect('project.db')
-    print ("Opened database successfully");
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM tweets WHERE id=?", (user_id,))
-    data = cursor.fetchall()
-    print(data)
-    if len(data) == 0:
+    db = connection.python_cloud.tweets
+    api_list=[]
+    tweet = db.find({'id':user_id})
+    for i in tweet:
+        api_list.append(str(i))
+    if api_list == []:
+        abort(404)
+    return jsonify({'tweet': api_list})
+
+# Adding user
+def add_user(new_user):
+    api_list=[]
+    print (new_user)
+    db = connection.python_cloud.users
+    user = db.find({'$or':[{"username":new_user['username']} ,{"email":new_user['email']}]})
+    for i in user:
+        print (str(i))
+        api_list.append(str(i))
+
+    # print (api_list)
+    if api_list == []:
+    #    print(new_user)
+       db.insert(new_user)
+       return "Success"
+    else :
+       abort(409)
+
+# Deleting User
+def del_user(del_user):
+    db = connection.python_cloud.users
+    api_list=[]
+    for i in db.find({'username':del_user}):
+        api_list.append(str(i))
+
+    if api_list == []:
         abort(404)
     else:
-        user = {}
-        user['id'] = data[0][0]
-        user['username'] = data[0][1]
-        user['body'] = data[0][2]
-        user['tweet_time'] = data[0][3]
-    conn.close()
-    return jsonify(user)
+       db.remove({"username":del_user})
+       return "Success"
 
-def sumSessionCounter():
-  try:
-    session['counter'] += 1
-  except KeyError:
-    session['counter'] = 1
+# Updating User Information
+def upd_user(user):
+    api_list=[]
+    print (user)
+    db_user = connection.python_cloud.users
+    users = db_user.find_one({"id":user['id']})
+    for i in users:
+        api_list.append(str(i))
+    if api_list == []:
+       abort(409)
+    else:
+        db_user.update({'id':user['id']},{'$set': user}, upsert=False )
+        return "Success"
 
+# List Tweets
+def list_tweets():
+
+    api_list=[]
+    db = connection.python_cloud.tweets
+    for row in db.find():
+        api_list.append(str(row))
+    # print (api_list)
+    return jsonify({'tweets_list': api_list})
+
+
+# Adding Tweets
+def add_tweet(new_tweet):
+    api_list=[]
+    print (new_tweet)
+    db_user = connection.python_cloud.users
+    db_tweet = connection.python_cloud.tweets
+    user = db_user.find({"username":new_tweet['tweetedby']})
+    for i in user:
+        api_list.append(str(i))
+    if api_list == []:
+       abort(404)
+    else:
+        db_tweet.insert(new_tweet)
+        return "Success"
+
+
+# API Routes
 @app.route('/')
 def main():
-    sumSessionCounter()
     return render_template('main.html')
 
 @app.route('/addname')
 def addname():
-    sumSessionCounter()
-    if request.args.get('yourname'):
-        session['name'] = request.args.get('yourname')
-        # And then redirect the user to the main page
-        return redirect(url_for('main'))
-    else:
-        return render_template('addname.html', session=session)
+  if request.args.get('yourname'):
+    session['name'] = request.args.get('yourname')
+    # Redirect to main
+    return redirect(url_for('main'))
+  else:
+    # getting addname
+    return render_template('addname.html', session=session)
 
 @app.route('/clear')
 def clearsession():
@@ -185,27 +197,19 @@ def addtweetjs():
 
 @app.route("/api/v1/info")
 def home_index():
-    conn = sqlite3.connect('project.db')
-    print ("Opened database successfully");
     api_list=[]
-    cursor = conn.execute("SELECT buildtime, version, methods, links FROM apirelease")
-    for row in cursor:
-        a_dict = {}
-        a_dict['buildtime'] = row[0]
-        a_dict['version'] = row[1]
-        a_dict['methods'] = row[2]
-        a_dict['links'] = row[3]
-        api_list.append(a_dict)
-    conn.close()
+    db = connection.python_cloud.apirelease
+    for row in db.find():
+        api_list.append(str(row))
     return jsonify({'api_version': api_list}), 200
 
-@app.route("/api/v1/users", methods=['GET'])
+@app.route('/api/v1/users', methods=['GET'])
 def get_users():
     return list_users()
 
-@app.route("/api/v1/user", methods=['GET'])
-def get_user_id():
-    return user_filter()
+@app.route('/api/v1/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    return list_user(user_id)
 
 @app.route('/api/v1/users', methods=['POST'])
 def create_user():
@@ -216,6 +220,7 @@ def create_user():
         'email': request.json['email'],
         'name': request.json.get('name',""),
         'password': request.json['password'],
+        'id': random.randint(1,1000)
     }
     return jsonify({'status': add_user(user)}), 201
 
@@ -229,45 +234,47 @@ def delete_user():
 @app.route('/api/v1/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
     user = {}
-    if not request.json:
-        abort(400)
-    user['id'] = user_id
+    user['id']=user_id
     key_list = request.json.keys()
     for i in key_list:
         user[i] = request.json[i]
-    print (user)
     return jsonify({'status': upd_user(user)}), 200
 
 @app.route('/api/v2/tweets', methods=['GET'])
 def get_tweets():
     return list_tweets()
 
-@app.route('/api/v2/tweets', methods=[('POST')])
+@app.route('/api/v2/tweets', methods=['POST'])
 def add_tweets():
+
     user_tweet = {}
     if not request.json or not 'username' in request.json or not 'body' in request.json:
         abort(400)
-    user_tweet['username'] = request.json['username']
+    user_tweet['tweetedby'] = request.json['username']
     user_tweet['body'] = request.json['body']
-    user_tweet['tweet_time']=strftime("%Y-%m-%dT%H:%M:%SZ", gmtime())
-    print (user_tweet)
-    return jsonify({'status': add_tweet(user_tweet)}), 201
+    user_tweet['timestamp']=strftime("%Y-%m-%dT%H:%M:%SZ", gmtime())
+    user_tweet['id'] = random.randint(1,1000)
+
+    return  jsonify({'status': add_tweet(user_tweet)}), 201
 
 @app.route('/api/v2/tweets/<int:id>', methods=['GET'])
 def get_tweet(id):
     return list_tweet(id)
 
+# Error handling
 @app.errorhandler(404)
-def page_not_found(e):
-    return "<h1>404</h1><p>The resource could not be found.</p>", 404
-
-@app.errorhandler(400)
-def invalid_request(error):
-    return make_response(jsonify({'error': 'Bad Request'}), 400)
+def resource_not_found(error):
+    return make_response(jsonify({'error': 'Resource not found!'}), 404)
 
 @app.errorhandler(409)
 def user_found(error):
     return make_response(jsonify({'error': 'Conflict! Record exist'}), 409)
 
-if __name__ == "__main__":
-  app.run(host='0.0.0.0', port=5000, debug=True)
+@app.errorhandler(400)
+def invalid_request(error):
+    return make_response(jsonify({'error': 'Bad Request'}), 400)
+
+# Main Function
+if __name__ == '__main__':
+    create_mongodatabase()
+    app.run(host='0.0.0.0', port=5000, debug=True)
