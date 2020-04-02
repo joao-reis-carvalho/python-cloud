@@ -23,7 +23,7 @@ class FlaskappTests(unittest.TestCase):
     def test_addusers_status_code(self):
         # sends HTTP GET request to the application
         result = self.app.post('api/v1/users',
-        data= '{ "username": "manish_kut", "email":"manish_kut@gmail.com","password":"manish123", "full_name":"Manish Kutrapali", "id":3}',
+        data= '{ "username": "manish_kut", "email":"manish_kut@gmail.com","password":"manish123", "name":"Manish Kutrapali", "id":3}',
         content_type='application/json')
         print(result)
         # assert the status code of response
@@ -31,7 +31,7 @@ class FlaskappTests(unittest.TestCase):
 
     def test_updusers_status_code(self):
         # sends HTTP PUT request to the application on the specified path
-        result = self.app.put('/api/v1/users/2',
+        result = self.app.put('/api/v1/users/33',
         data='{"password":"testing123"}',
         content_type='application/json')
         # assert the status code of the response
@@ -40,7 +40,7 @@ class FlaskappTests(unittest.TestCase):
     def test_addtweets_status_code(self):
         # sends HTTP GET request to the application on the specified path
         result = self.app.post('/api/v2/tweets',
-        data='{"username":"sheldon_smart", "body":"Its working #testing"}',
+        data='{"username":"eric.strom", "body":"Its working #testing"}',
         content_type='application/json')
         # assert the status code of the response
         self.assertEqual(result.status_code, 201)
