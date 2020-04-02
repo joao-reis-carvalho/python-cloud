@@ -1,11 +1,15 @@
-from flask import Flask
-from flask import jsonify, request
-from flask import abort, make_response
+from flask import Flask, render_template, request, jsonify, redirect, session
+from flask import abort
+from flask_cors import CORS, cross_origin
+from flask import make_response, url_for
 import json
-import sqlite3
 from time import gmtime, strftime
+import sqlite3
 
 app = Flask (__name__)
+app.config.from_object(__name__)
+app.secret_key = 'F12Zr47j\3yX R~X@H!jmM]Lwf/,?KT'
+CORS(app)
 
 def list_users():
     conn=sqlite3.connect('project.db')
@@ -15,7 +19,7 @@ def list_users():
     for row in cursor:
         a_dict={}
         a_dict['username'] = row[0]
-        a_dict['full_name'] = row[1]
+        a_dict['name'] = row[1]
         a_dict['email'] = row[2]
         a_dict['password'] = row[3]
         api_list.append(a_dict)
@@ -55,7 +59,7 @@ def add_user(new_user):
     if len(data) != 0:
         abort(409)
     else:
-        cursor.execute('''INSERT INTO users (username, email, password, full_name, id) values(?,?,?,?,?)''',(new_user['username'],new_user['email'],new_user['password'], new_user['full_name'], new_user['id']))
+        cursor.execute('''INSERT INTO users (username, email, password, full_name) values(?,?,?,?)''',(new_user['username'],new_user['email'],new_user['password'], new_user['name']))
         conn.commit()
         return "Success"
     conn.close()
@@ -104,9 +108,9 @@ def list_tweets():
     for row in data:
         tweets={}
         tweets['id'] = row[0]
-        tweets['Tweet By'] = row[1]
-        tweets['Body'] = row[2]
-        tweets['Timestamp'] = row[3]
+        tweets['tweetedby'] = row[1]
+        tweets['body'] = row[2]
+        tweets['timestamp'] = row[3]
         api_list.append(tweets)
     conn.close()
     return jsonify({'tweets_list': api_list})
@@ -143,6 +147,42 @@ def list_tweet(user_id):
     conn.close()
     return jsonify(user)
 
+def sumSessionCounter():
+  try:
+    session['counter'] += 1
+  except KeyError:
+    session['counter'] = 1
+
+@app.route('/')
+def main():
+    sumSessionCounter()
+    return render_template('main.html')
+
+@app.route('/addname')
+def addname():
+    sumSessionCounter()
+    if request.args.get('yourname'):
+        session['name'] = request.args.get('yourname')
+        # And then redirect the user to the main page
+        return redirect(url_for('main'))
+    else:
+        return render_template('addname.html', session=session)
+
+@app.route('/clear')
+def clearsession():
+    # Clear the session
+    session.clear()
+    # Redirect the user to the main page
+    return redirect(url_for('main'))
+
+@app.route('/adduser')
+def adduser():
+    return render_template('adduser.html')
+
+@app.route('/addtweets')
+def addtweetjs():
+    return render_template('addtweets.html')
+
 @app.route("/api/v1/info")
 def home_index():
     conn = sqlite3.connect('project.db')
@@ -174,9 +214,8 @@ def create_user():
     user = {
         'username': request.json['username'],
         'email': request.json['email'],
-        'full_name': request.json.get('full_name',""),
+        'name': request.json.get('name',""),
         'password': request.json['password'],
-        'id': request.json['id'],
     }
     return jsonify({'status': add_user(user)}), 201
 
@@ -226,6 +265,9 @@ def page_not_found(e):
 def invalid_request(error):
     return make_response(jsonify({'error': 'Bad Request'}), 400)
 
+@app.errorhandler(409)
+def user_found(error):
+    return make_response(jsonify({'error': 'Conflict! Record exist'}), 409)
 
 if __name__ == "__main__":
   app.run(host='0.0.0.0', port=5000, debug=True)

@@ -18,7 +18,7 @@ c.execute('''CREATE TABLE users (
                 [email] varchar2 (30),
                 [password] varchar2 (30),
                 [full_name] varchar (30),
-                [id] integer primary key)''');
+                [id] integer primary key autoincrement)''');
 
 c.execute('''INSERT INTO users values ('manish_kut',
             "manishest@gmail.com", "manish123", "Manish Kutrapali", 1)''')

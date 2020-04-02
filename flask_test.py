@@ -23,7 +23,7 @@ class FlaskappTests(unittest.TestCase):
     def test_addusers_status_code(self):
         # sends HTTP GET request to the application
         result = self.app.post('api/v1/users',
-        data= '{ "username": "manish_kut", "email":"manish_kut@gmail.com","password":"manish123", "full_name":"Manish Kutrapali", "id":1 }',
+        data= '{ "username": "manish_kut", "email":"manish_kut@gmail.com","password":"manish123", "full_name":"Manish Kutrapali", "id":3}',
         content_type='application/json')
         print(result)
         # assert the status code of response
