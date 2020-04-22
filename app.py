@@ -9,6 +9,7 @@ from pymongo import MongoClient
 from time import gmtime, strftime
 import sqlite3
 
+#THIS A TEST!
 # connection to MongoDB Database
 connection = MongoClient("mongodb://localhost:27017/")
 
